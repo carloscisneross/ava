@@ -1,6 +1,9 @@
 name: AVA Installer
 on:
   workflow_dispatch:
+  push:
+    paths:
+      - '.github/workflows/install.yml'
 
 jobs:
   install:
