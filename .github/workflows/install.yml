@@ -1,62 +1,41 @@
 name: AVA Installer
 on:
   workflow_dispatch:
-  push:
-    paths:
-      - '.github/workflows/install.yml'
-
-permissions:
-  contents: write
 
 jobs:
   install:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
       - uses: actions/checkout@v4
 
       - name: Write AVA files (config, main workflow, dashboard stub)
         shell: bash
         run: |
+          set -e
           mkdir -p .github/workflows state
 
-          # --- ava.config.json (edit numbers later) ---
+          # --- ava.config.json ---
           cat > ava.config.json <<'JSON'
 {
   "user": { "languages": ["es","en"], "weekly_time_hrs": 20 },
-  "finops": {
-    "monthly_expenses_usd": 0,
-    "debt_total_usd": 59176,
-    "apr_pct": 0,
-    "debt_months": 36,
-    "buffer_daily_usd": 5
-  },
-  "north_star": {
-    "daily_cash_target_formula": "(monthly_expenses/30)+(debt_service/30)+buffer",
-    "rebalance_cadence_hours": 24
-  },
-  "policies": {
-    "zero_spend": true,
-    "first_dollar_priority": true,
-    "min_parallel_tracks": 2,
-    "posting_windows_et": [["12:00","14:00"],["19:00","21:00"]],
-    "kill_switches": ["briefs_no_inquiry_48h","reddit_no_clicks_72h","thumbnail_decay"]
-  },
-  "portfolio": {
-    "fast_cash": ["brief_flip"],
-    "compounding": ["yt_jobs_shorts","medium_linkedin_jobpacks"]
-  },
+  "finops": { "monthly_expenses_usd": 0, "debt_total_usd": 59176, "apr_pct": 0, "debt_months": 36, "buffer_daily_usd": 5 },
+  "north_star": { "daily_cash_target_formula": "(monthly_expenses/30)+(debt_service/30)+buffer", "rebalance_cadence_hours": 24 },
+  "policies": { "zero_spend": true, "first_dollar_priority": true, "min_parallel_tracks": 2, "posting_windows_et": [["12:00","14:00"],["19:00","21:00"]], "kill_switches": ["briefs_no_inquiry_48h","reddit_no_clicks_72h","thumbnail_decay"] },
+  "portfolio": { "fast_cash": ["brief_flip"], "compounding": ["yt_jobs_shorts","medium_linkedin_jobpacks"] },
   "advisors": [
-    {"id":"gpt5_planner","weight":0.45,"role":"Planner"},
-    {"id":"deepseek_redteam","weight":0.30,"role":"Critic"},
-    {"id":"gemini_trends","weight":0.25,"role":"TrendScout"}
+    { "id":"gpt5_planner","weight":0.45,"role":"Planner" },
+    { "id":"deepseek_redteam","weight":0.30,"role":"Critic" },
+    { "id":"gemini_trends","weight":0.25,"role":"TrendScout" }
   ],
-  "quorum": {"min_advisors": 2, "min_weight": 0.6},
-  "bandits": { "hooks":"thompson", "thumb_title":"ucb1", "post_window":"epsilon", "epsilon": 0.2 },
-  "approvals": { "mode":"auto_if_consensus", "consensus_threshold": 0.70, "notify": "issues" }
+  "quorum": { "min_advisors": 2, "min_weight": 0.6 },
+  "bandits": { "hooks":"thompson","thumb_title":"ucb1","post_window":"epsilon","epsilon":0.2 },
+  "approvals": { "mode":"auto_if_consensus","consensus_threshold":0.70,"notify":"issues" }
 }
 JSON
 
-          # --- main runner workflow ---
+          # --- .github/workflows/ava.yml (main runner) ---
           cat > .github/workflows/ava.yml <<'YML'
 name: AVA: Launch & Operate
 on:
@@ -118,51 +97,13 @@ PY
           git push || true
 YML
 
-          # --- dashboard stub (will be overwritten by first run) ---
+          # --- dashboard stub (overwritten on first run) ---
           echo "# AVA Dashboard" > state/README.md
 
       - name: Commit bootstrap files
         run: |
           git config user.name "ava-bot"
           git config user.email "bot@users.noreply.github.com"
-          git add .
+          git add -A
           git commit -m "Install AVA (bootstrap files)" || true
-          git push || true
-
-  first_run:
-    needs: install
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - name: One-time run to build dashboard now
-        shell: bash
-        run: |
-          mkdir -p state
-          python3 - <<'PY'
-import json, time, pathlib, math
-cfg = json.loads(open("ava.config.json").read())
-P = float(cfg["finops"]["debt_total_usd"])
-r = float(cfg["finops"]["apr_pct"]) / 100 / 12
-n = max(1, int(cfg["finops"]["debt_months"]))
-pay = (P/n) if r==0 else (P*r*(1+r)**n)/(((1+r)**n)-1)
-daily = (float(cfg["finops"]["monthly_expenses_usd"])/30.0) + (pay/30.0) + float(cfg["finops"]["buffer_daily_usd"])
-open("state/metrics.json","w").write(json.dumps({"daily_cash_target_usd": round(daily,2)}, indent=2))
-open("state/runlog.json","w").write(json.dumps({"ts": time.time(), "next_actions":["See ava.yml for tasks"]}, indent=2))
-open("state/proposals.json","w").write(json.dumps({"ok": True}, indent=2))
-open("state/consensus.json","w").write(json.dumps({"decision": "scale yt_jobs_shorts"}, indent=2))
-PY
-          python3 - <<'PY'
-import json, pathlib
-from datetime import datetime, timezone
-target = json.loads(open("state/metrics.json").read()).get("daily_cash_target_usd","?")
-text = "# AVA Dashboard\n\n"
-text += f"- Last run (UTC): {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S')}\n"
-text += "- Decision: scale yt_jobs_shorts; continue brief_flip & jobpacks\n"
-text += f"- Daily cash target (est.): ${target}\n"
-open("state/README.md","w").write(text)
-PY
-          git config user.name "ava-bot"
-          git config user.email "bot@users.noreply.github.com"
-          git add state || true
-          git commit -m "AVA first run" || true
           git push || true
