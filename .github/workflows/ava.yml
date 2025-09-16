@@ -3,57 +3,22 @@ on:
   workflow_dispatch:
 
 jobs:
-  operate:
+  ok:
     runs-on: ubuntu-latest
     permissions:
       contents: write
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Run AVA (stubs)
+      - uses: actions/checkout@v4
+      - name: Build minimal dashboard
         run: |
           mkdir -p state
-          python3 - <<'PY'
-import json, time, pathlib, math
-cfg = json.loads(open("ava.config.json").read())
-P = float(cfg["finops"]["debt_total_usd"])
-r = float(cfg["finops"]["apr_pct"]) / 100.0 / 12.0
-n = max(1, int(cfg["finops"]["debt_months"]))
-pay = (P/n) if r==0 else (P*r*(1+r)**n)/(((1+r)**n)-1)
-daily = (float(cfg["finops"]["monthly_expenses_usd"])/30.0) + (pay/30.0) + float(cfg["finops"]["buffer_daily_usd"])
-pathlib.Path("state").mkdir(exist_ok=True)
-open("state/metrics.json","w").write(json.dumps({"daily_cash_target_usd": round(daily,2)}, indent=2))
-open("state/runlog.json","w").write(json.dumps({
-  "ts": time.time(),
-  "next_actions": [
-    "Reply to 15 Briefs/invites (resume polish ES/EN, 24h delivery).",
-    "Publish 1 Short at 12–14 ET with Thompson hook + UCB1 thumbnail.",
-    "Post 1 Reddit/Medium job-pack with disclosure + bridge page."
-  ]
-}, indent=2))
-open("state/proposals.json","w").write(json.dumps({"ok": True}, indent=2))
-open("state/consensus.json","w").write(json.dumps({"decision": "scale yt_jobs_shorts"}, indent=2))
-PY
-
-      - name: Write dashboard
-        run: |
-          python3 - <<'PY'
-import json, pathlib
-from datetime import datetime, timezone
-p = pathlib.Path("state"); p.mkdir(exist_ok=True)
-target = json.loads(open("state/metrics.json").read()).get("daily_cash_target_usd","?")
-text = "# AVA Dashboard\n\n"
-text += f"- Last run (UTC): {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S')}\n"
-text += "- Decision: scale yt_jobs_shorts; continue brief_flip & jobpacks\n"
-text += f"- Daily cash target (est.): ${target}\n"
-open("state/README.md","w").write(text)
-PY
-
-      - name: Commit state
+          echo "# AVA Dashboard" > state/README.md
+          echo "" >> state/README.md
+          echo "- Last run (UTC): $(date -u)" >> state/README.md
+      - name: Commit dashboard
         run: |
           git config user.name "ava-bot"
           git config user.email "bot@users.noreply.github.com"
           git add state || true
-          git commit -m "AVA run" || true
+          git commit -m "init dashboard" || true
           git push || true
