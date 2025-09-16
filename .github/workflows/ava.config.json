@@ -1,0 +1,33 @@
+{
+  "user": { "languages": ["es","en"], "weekly_time_hrs": 20 },
+  "finops": {
+    "monthly_expenses_usd": 0,
+    "debt_total_usd": 59176,
+    "apr_pct": 0,
+    "debt_months": 36,
+    "buffer_daily_usd": 5
+  },
+  "north_star": {
+    "daily_cash_target_formula": "(monthly_expenses/30)+(debt_service/30)+buffer",
+    "rebalance_cadence_hours": 24
+  },
+  "policies": {
+    "zero_spend": true,
+    "first_dollar_priority": true,
+    "min_parallel_tracks": 2,
+    "posting_windows_et": [["12:00","14:00"],["19:00","21:00"]],
+    "kill_switches": ["briefs_no_inquiry_48h","reddit_no_clicks_72h","thumbnail_decay"]
+  },
+  "portfolio": {
+    "fast_cash": ["brief_flip"],
+    "compounding": ["yt_jobs_shorts","medium_linkedin_jobpacks"]
+  },
+  "advisors": [
+    {"id":"gpt5_planner","weight":0.45,"role":"Planner"},
+    {"id":"deepseek_redteam","weight":0.30,"role":"Critic"},
+    {"id":"gemini_trends","weight":0.25,"role":"TrendScout"}
+  ],
+  "quorum": { "min_advisors": 2, "min_weight": 0.6 },
+  "bandits": { "hooks":"thompson", "thumb_title":"ucb1", "post_window":"epsilon", "epsilon": 0.2 },
+  "approvals": { "mode":"auto_if_consensus", "consensus_threshold": 0.70, "notify": "issues" }
+}
